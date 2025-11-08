@@ -12,7 +12,7 @@ vectorbt==0.26.0
 yfinance==0.2.36
 ccxt==4.2.25
 alpha-vantage==2.3.1
-pandas==2.1.4
+pandas==2.2.3
 numpy==1.26.3
 pandas-ta==0.3.14b
 
