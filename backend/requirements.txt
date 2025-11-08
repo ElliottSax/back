@@ -14,7 +14,7 @@ ccxt==4.2.25
 alpha-vantage==2.3.1
 pandas==2.2.3
 numpy==1.26.3
-pandas-ta==0.3.14b
+pandas-ta==0.4.71b0
 
 # Database
 sqlalchemy==2.0.25
@@ -47,3 +47,5 @@ httpx==0.26.0
 black==24.1.1
 flake8==7.0.0
 mypy==1.8.0
+
+# Updated for Python 3.13 compatibility
