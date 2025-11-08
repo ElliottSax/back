@@ -1,0 +1,283 @@
+import pandas as pd
+import numpy as np
+from backtesting import Backtest, Strategy
+from backtesting.lib import crossover
+from backtesting.test import SMA
+from typing import Dict, Any, Optional, Type
+import pandas_ta as ta
+
+
+class BacktestEngine:
+    """
+    Core backtesting engine that executes strategies and generates results.
+
+    Uses the backtesting.py library as the foundation.
+    """
+
+    def __init__(self, data: pd.DataFrame, initial_capital: float = 10000.0, commission: float = 0.001):
+        """
+        Initialize the backtesting engine.
+
+        Args:
+            data: Historical OHLCV DataFrame
+            initial_capital: Starting capital for the backtest
+            commission: Commission per trade (as decimal, e.g., 0.001 = 0.1%)
+        """
+        self.data = self._prepare_data(data)
+        self.initial_capital = initial_capital
+        self.commission = commission
+
+    def _prepare_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Prepare data for backtesting.py library.
+
+        Ensures correct format and column names.
+        """
+        # backtesting.py expects specific column names (capitalized)
+        df = df.copy()
+        df = df.rename(columns={
+            'open': 'Open',
+            'high': 'High',
+            'low': 'Low',
+            'close': 'Close',
+            'volume': 'Volume'
+        })
+
+        # Ensure required columns exist
+        required = ['Open', 'High', 'Low', 'Close', 'Volume']
+        for col in required:
+            if col not in df.columns:
+                raise ValueError(f"Missing required column: {col}")
+
+        # Remove any NaN values
+        df = df.dropna()
+
+        return df
+
+    def create_strategy_from_definition(self, definition: Dict[str, Any]) -> Type[Strategy]:
+        """
+        Dynamically create a Strategy class from a strategy definition.
+
+        This converts the JSON strategy definition into executable backtesting.py code.
+        """
+        entry_rules = definition.get('entry_rules', [])
+        exit_rules = definition.get('exit_rules', [])
+        position_size = definition.get('position_size', 1.0)
+
+        class DynamicStrategy(Strategy):
+            """Dynamically generated strategy."""
+
+            def init(self):
+                """Initialize indicators."""
+                # Parse and create indicators from entry/exit rules
+                for rule in entry_rules + exit_rules:
+                    indicator_type = rule.get('indicator')
+                    params = rule.get('params', {})
+
+                    if indicator_type == 'sma':
+                        period = params.get('period', 20)
+                        setattr(self, f'sma_{period}', self.I(SMA, self.data.Close, period))
+
+                    elif indicator_type == 'ema':
+                        period = params.get('period', 20)
+                        setattr(self, f'ema_{period}', self.I(
+                            lambda x, p: pd.Series(x).ewm(span=p).mean(),
+                            self.data.Close, period
+                        ))
+
+                    elif indicator_type == 'rsi':
+                        period = params.get('period', 14)
+                        setattr(self, f'rsi_{period}', self.I(
+                            lambda x, p: ta.rsi(pd.Series(x), length=p),
+                            self.data.Close, period
+                        ))
+
+                    elif indicator_type == 'macd':
+                        fast = params.get('fast', 12)
+                        slow = params.get('slow', 26)
+                        signal = params.get('signal', 9)
+                        # MACD implementation
+                        setattr(self, 'macd', self.I(
+                            lambda x: ta.macd(pd.Series(x), fast=fast, slow=slow, signal=signal)['MACD_12_26_9'],
+                            self.data.Close
+                        ))
+                        setattr(self, 'macd_signal', self.I(
+                            lambda x: ta.macd(pd.Series(x), fast=fast, slow=slow, signal=signal)['MACDs_12_26_9'],
+                            self.data.Close
+                        ))
+
+            def next(self):
+                """Execute strategy logic on each bar."""
+                # Check entry conditions
+                should_enter = self._check_conditions(entry_rules)
+
+                # Check exit conditions
+                should_exit = self._check_conditions(exit_rules)
+
+                if should_enter and not self.position:
+                    self.buy(size=position_size)
+                elif should_exit and self.position:
+                    self.position.close()
+
+            def _check_conditions(self, rules):
+                """Check if all conditions in the rule set are met."""
+                if not rules:
+                    return False
+
+                for rule in rules:
+                    indicator_type = rule.get('indicator')
+                    params = rule.get('params', {})
+                    condition = rule.get('condition')
+                    compare_to = rule.get('compare_to')
+
+                    # Get the indicator value
+                    if indicator_type == 'sma':
+                        period = params.get('period', 20)
+                        indicator_value = getattr(self, f'sma_{period}')
+                    elif indicator_type == 'ema':
+                        period = params.get('period', 20)
+                        indicator_value = getattr(self, f'ema_{period}')
+                    elif indicator_type == 'rsi':
+                        period = params.get('period', 14)
+                        indicator_value = getattr(self, f'rsi_{period}')
+                    elif indicator_type == 'macd':
+                        indicator_value = getattr(self, 'macd')
+                        if compare_to == 'signal':
+                            compare_to = getattr(self, 'macd_signal')
+                    else:
+                        continue
+
+                    # Evaluate condition
+                    if condition == 'greater_than':
+                        if isinstance(compare_to, (int, float)):
+                            if not (indicator_value[-1] > compare_to):
+                                return False
+                    elif condition == 'less_than':
+                        if isinstance(compare_to, (int, float)):
+                            if not (indicator_value[-1] < compare_to):
+                                return False
+                    elif condition == 'crosses_above':
+                        if isinstance(compare_to, dict):
+                            # Compare to another indicator
+                            other_indicator = compare_to.get('indicator')
+                            other_params = compare_to.get('params', {})
+                            if other_indicator == 'sma':
+                                period = other_params.get('period', 200)
+                                compare_value = getattr(self, f'sma_{period}')
+                                if not crossover(indicator_value, compare_value):
+                                    return False
+                        else:
+                            # Compare to signal line
+                            if not crossover(indicator_value, compare_to):
+                                return False
+                    elif condition == 'crosses_below':
+                        if isinstance(compare_to, dict):
+                            other_indicator = compare_to.get('indicator')
+                            other_params = compare_to.get('params', {})
+                            if other_indicator == 'sma':
+                                period = other_params.get('period', 200)
+                                compare_value = getattr(self, f'sma_{period}')
+                                if not crossover(compare_value, indicator_value):
+                                    return False
+                        else:
+                            if not crossover(compare_to, indicator_value):
+                                return False
+
+                return True
+
+        return DynamicStrategy
+
+    async def run(self, strategy_class: Type[Strategy]) -> Dict[str, Any]:
+        """
+        Run the backtest with the given strategy.
+
+        Args:
+            strategy_class: The Strategy class to execute
+
+        Returns:
+            Dictionary containing backtest results and metrics
+        """
+        # Initialize backtest
+        bt = Backtest(
+            self.data,
+            strategy_class,
+            cash=self.initial_capital,
+            commission=self.commission,
+            exclusive_orders=True
+        )
+
+        # Run backtest
+        stats = bt.run()
+
+        # Extract results
+        results = {
+            'final_value': float(stats['Equity Final [$]']),
+            'total_return': float(stats['Return [%]'] * self.initial_capital / 100),
+            'total_return_pct': float(stats['Return [%]']),
+            'sharpe_ratio': float(stats['Sharpe Ratio']) if not pd.isna(stats['Sharpe Ratio']) else None,
+            'max_drawdown': float(stats['Max. Drawdown [$]']),
+            'max_drawdown_pct': float(stats['Max. Drawdown [%]']),
+            'win_rate': float(stats['Win Rate [%]']),
+            'total_trades': int(stats['# Trades']),
+            'winning_trades': int(stats['# Trades'] * stats['Win Rate [%]'] / 100),
+            'losing_trades': int(stats['# Trades'] * (100 - stats['Win Rate [%]']) / 100),
+            'avg_win': 0.0,  # Calculate from trades
+            'avg_loss': 0.0,  # Calculate from trades
+            'profit_factor': None,  # Calculate from trades
+            'equity_curve': [],
+            'trades': []
+        }
+
+        # Get equity curve
+        equity = stats._equity_curve
+        if equity is not None:
+            equity_data = equity.reset_index()
+            results['equity_curve'] = [
+                {
+                    'date': str(row['index'] if 'index' in row else row.name),
+                    'equity': float(row['Equity'])
+                }
+                for _, row in equity_data.iterrows()
+            ]
+
+        # Get trades
+        trades = stats._trades
+        if trades is not None and not trades.empty:
+            results['trades'] = [
+                {
+                    'entry_time': str(row['EntryTime']),
+                    'exit_time': str(row['ExitTime']),
+                    'entry_price': float(row['EntryPrice']),
+                    'exit_price': float(row['ExitPrice']),
+                    'size': float(row['Size']),
+                    'pnl': float(row['PnL']),
+                    'return_pct': float(row['ReturnPct'])
+                }
+                for _, row in trades.iterrows()
+            ]
+
+            # Calculate win/loss metrics
+            winning_trades = trades[trades['PnL'] > 0]
+            losing_trades = trades[trades['PnL'] < 0]
+
+            if len(winning_trades) > 0:
+                results['avg_win'] = float(winning_trades['PnL'].mean())
+            if len(losing_trades) > 0:
+                results['avg_loss'] = float(abs(losing_trades['PnL'].mean()))
+
+            # Calculate profit factor
+            if results['avg_loss'] > 0:
+                total_wins = winning_trades['PnL'].sum()
+                total_losses = abs(losing_trades['PnL'].sum())
+                if total_losses > 0:
+                    results['profit_factor'] = float(total_wins / total_losses)
+
+        return results
+
+    async def load_strategy(self, strategy_id: str) -> Type[Strategy]:
+        """
+        Load a saved strategy by ID.
+
+        TODO: Implement database lookup
+        """
+        raise NotImplementedError("Strategy loading not yet implemented")
