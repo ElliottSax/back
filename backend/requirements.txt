@@ -14,7 +14,7 @@ ccxt==4.2.25
 alpha-vantage==2.3.1
 pandas==2.2.3
 numpy==1.26.3
-pandas-ta==0.3.14b
+pandas-ta==0.4.71b0
 
 # Database
 sqlalchemy==2.0.25
