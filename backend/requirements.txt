@@ -13,7 +13,7 @@ yfinance==0.2.36
 ccxt==4.2.25
 alpha-vantage==2.3.1
 pandas==2.2.3
-numpy==1.26.3
+numpy==2.2.6
 pandas-ta==0.4.71b0
 
 # Database
