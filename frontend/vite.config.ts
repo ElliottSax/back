@@ -19,4 +19,10 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    allowedHosts: [
+      'natural-spontaneity-production.up.railway.app',
+      '.railway.app',
+    ],
+  },
 })
