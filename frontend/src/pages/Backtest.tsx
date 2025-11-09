@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { backtestAPI } from '@/services/api'
-import { AssetClass, BacktestResult, IndicatorType, ConditionType } from '@/types'
+import { AssetClass, IndicatorType, ConditionType } from '@/types'
 import { Play, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react'
 import {
   LineChart,
