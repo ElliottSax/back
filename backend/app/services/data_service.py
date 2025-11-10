@@ -168,11 +168,10 @@ class DataService:
         ts = TimeSeries(key=settings.ALPHA_VANTAGE_API_KEY, output_format='pandas')
         df, meta = ts.get_daily(symbol=symbol, outputsize='full')
 
-        # Filter by date range
-        df.index = pd.to_datetime(df.index)
-        df = df.loc[start_date:end_date]
+        print(f"Alpha Vantage raw response: {len(df)} rows")
+        print(f"Date range: {df.index.min()} to {df.index.max()}")
 
-        # Rename columns to match expected format
+        # Rename columns first
         df = df.rename(columns={
             '1. open': 'Open',
             '2. high': 'High',
@@ -180,6 +179,17 @@ class DataService:
             '4. close': 'Close',
             '5. volume': 'Volume'
         })
+
+        # Convert index to datetime and sort
+        df.index = pd.to_datetime(df.index)
+        df = df.sort_index()  # Sort in ascending order
+
+        print(f"Requested date range: {start_date} to {end_date}")
+
+        # Filter by date range
+        df = df[(df.index >= start_date) & (df.index <= end_date)]
+
+        print(f"After filtering: {len(df)} rows")
 
         return df
 
