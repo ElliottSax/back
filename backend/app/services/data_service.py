@@ -70,13 +70,19 @@ class DataService:
     ) -> pd.DataFrame:
         """Fetch data using Yahoo Finance."""
         try:
-            ticker = yf.Ticker(symbol)
-            df = ticker.history(
-                start=start_date,
-                end=end_date,
-                interval=timeframe,
-                auto_adjust=False  # Keep unadjusted prices
+            import asyncio
+            from functools import partial
+
+            # Run yfinance in thread pool since it's synchronous
+            loop = asyncio.get_event_loop()
+            fetch_func = partial(
+                self._fetch_yfinance_sync,
+                symbol,
+                start_date,
+                end_date,
+                timeframe
             )
+            df = await loop.run_in_executor(None, fetch_func)
 
             if df.empty:
                 raise ValueError(f"No data returned for {symbol}")
@@ -85,6 +91,23 @@ class DataService:
 
         except Exception as e:
             raise Exception(f"Error fetching data from Yahoo Finance: {str(e)}")
+
+    def _fetch_yfinance_sync(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+        timeframe: str
+    ) -> pd.DataFrame:
+        """Synchronous yfinance fetch for thread pool execution."""
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(
+            start=start_date,
+            end=end_date,
+            interval=timeframe,
+            auto_adjust=False
+        )
+        return df
 
     async def _fetch_forex_data(
         self,
