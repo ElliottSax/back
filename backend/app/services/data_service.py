@@ -47,10 +47,21 @@ class DataService:
         if asset_class == AssetClass.STOCK:
             # Try Alpha Vantage first for stocks, fallback to Yahoo Finance
             try:
+                print(f"Fetching {symbol} from Alpha Vantage...")
                 df = await self._fetch_alpha_vantage_data(symbol, start_date, end_date, timeframe)
+                print(f"Alpha Vantage returned {len(df)} rows")
             except Exception as e:
-                print(f"Alpha Vantage failed: {e}, trying Yahoo Finance...")
-                df = await self._fetch_yfinance_data(symbol, start_date, end_date, timeframe)
+                import traceback
+                print(f"Alpha Vantage failed for {symbol}: {str(e)}")
+                print(f"Traceback: {traceback.format_exc()}")
+                print(f"Trying Yahoo Finance fallback...")
+                try:
+                    df = await self._fetch_yfinance_data(symbol, start_date, end_date, timeframe)
+                    print(f"Yahoo Finance returned {len(df)} rows")
+                except Exception as yf_error:
+                    print(f"Yahoo Finance also failed: {str(yf_error)}")
+                    print(f"YF Traceback: {traceback.format_exc()}")
+                    raise
         elif asset_class == AssetClass.CRYPTO:
             df = await self._fetch_yfinance_data(symbol, start_date, end_date, timeframe)
         elif asset_class == AssetClass.FOREX:
