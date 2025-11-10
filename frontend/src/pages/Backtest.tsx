@@ -24,9 +24,21 @@ const Backtest = () => {
 
   const backtestMutation = useMutation({
     mutationFn: backtestAPI.run,
+    onSuccess: (data) => {
+      console.log('=== BACKTEST SUCCESS ===')
+      console.log('Result data:', data)
+    },
+    onError: (error) => {
+      console.error('=== BACKTEST ERROR ===')
+      console.error('Error:', error)
+    },
   })
 
   const handleRunBacktest = () => {
+    console.log('=== RUN BACKTEST CLICKED ===')
+    console.log('Symbol:', symbol)
+    console.log('Date range:', startDate, 'to', endDate)
+
     // Use the SMA Crossover strategy from templates
     const smaStrategy = {
       name: 'SMA Crossover',
@@ -57,7 +69,7 @@ const Backtest = () => {
       max_positions: 1,
     }
 
-    backtestMutation.mutate({
+    const requestData = {
       symbol,
       asset_class: assetClass,
       strategy_definition: smaStrategy,
@@ -66,7 +78,14 @@ const Backtest = () => {
       initial_capital: initialCapital,
       commission,
       timeframe: '1d',
-    })
+    }
+
+    console.log('Request data:', requestData)
+    console.log('Calling mutation.mutate()...')
+
+    backtestMutation.mutate(requestData)
+
+    console.log('Mutation called. isPending:', backtestMutation.isPending)
   }
 
   const result = backtestMutation.data
