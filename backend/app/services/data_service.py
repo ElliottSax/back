@@ -44,7 +44,14 @@ class DataService:
             return self.cache[cache_key].copy()
 
         # Fetch data based on asset class
-        if asset_class in [AssetClass.STOCK, AssetClass.CRYPTO]:
+        if asset_class == AssetClass.STOCK:
+            # Try Alpha Vantage first for stocks, fallback to Yahoo Finance
+            try:
+                df = await self._fetch_alpha_vantage_data(symbol, start_date, end_date, timeframe)
+            except Exception as e:
+                print(f"Alpha Vantage failed: {e}, trying Yahoo Finance...")
+                df = await self._fetch_yfinance_data(symbol, start_date, end_date, timeframe)
+        elif asset_class == AssetClass.CRYPTO:
             df = await self._fetch_yfinance_data(symbol, start_date, end_date, timeframe)
         elif asset_class == AssetClass.FOREX:
             df = await self._fetch_forex_data(symbol, start_date, end_date, timeframe)
@@ -107,6 +114,62 @@ class DataService:
             interval=timeframe,
             auto_adjust=False
         )
+        return df
+
+    async def _fetch_alpha_vantage_data(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime,
+        timeframe: str
+    ) -> pd.DataFrame:
+        """Fetch stock data using Alpha Vantage."""
+        from alpha_vantage.timeseries import TimeSeries
+        from app.config import settings
+        import asyncio
+        from functools import partial
+
+        if not settings.ALPHA_VANTAGE_API_KEY:
+            raise ValueError("Alpha Vantage API key not configured")
+
+        # Run Alpha Vantage in thread pool since it's synchronous
+        loop = asyncio.get_event_loop()
+        fetch_func = partial(
+            self._fetch_alpha_vantage_sync,
+            symbol,
+            start_date,
+            end_date
+        )
+        df = await loop.run_in_executor(None, fetch_func)
+
+        return df
+
+    def _fetch_alpha_vantage_sync(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> pd.DataFrame:
+        """Synchronous Alpha Vantage fetch."""
+        from alpha_vantage.timeseries import TimeSeries
+        from app.config import settings
+
+        ts = TimeSeries(key=settings.ALPHA_VANTAGE_API_KEY, output_format='pandas')
+        df, meta = ts.get_daily(symbol=symbol, outputsize='full')
+
+        # Filter by date range
+        df.index = pd.to_datetime(df.index)
+        df = df.loc[start_date:end_date]
+
+        # Rename columns to match expected format
+        df = df.rename(columns={
+            '1. open': 'Open',
+            '2. high': 'High',
+            '3. low': 'Low',
+            '4. close': 'Close',
+            '5. volume': 'Volume'
+        })
+
         return df
 
     async def _fetch_forex_data(
