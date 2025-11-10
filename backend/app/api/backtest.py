@@ -128,8 +128,13 @@ async def run_backtest(request: BacktestRequest):
             trades=result['trades']
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        error_detail = f"{str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        print(f"ERROR in run_backtest: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 @router.get("/status/{backtest_id}")
