@@ -63,7 +63,7 @@ async def run_backtest(request: BacktestRequest):
     """
     try:
         # Import here to avoid circular dependencies
-        from backtesting.engine import BacktestEngine
+        from bt_engine.engine import BacktestEngine
         from app.services.data_service import DataService
 
         # Validate request
