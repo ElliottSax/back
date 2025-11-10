@@ -209,18 +209,30 @@ class BacktestEngine:
         # Run backtest
         stats = bt.run()
 
-        # Extract results
+        # Debug: print available stat keys
+        print(f"Available stat keys: {list(stats.index)}")
+
+        # Helper function to safely get stat value
+        def get_stat(key, default=0.0):
+            try:
+                val = stats[key]
+                return float(val) if not pd.isna(val) else default
+            except (KeyError, TypeError):
+                print(f"Warning: Stat key '{key}' not found, using default: {default}")
+                return default
+
+        # Extract results with safe access
         results = {
-            'final_value': float(stats['Equity Final [$]']),
-            'total_return': float(stats['Return [%]'] * self.initial_capital / 100),
-            'total_return_pct': float(stats['Return [%]']),
-            'sharpe_ratio': float(stats['Sharpe Ratio']) if not pd.isna(stats['Sharpe Ratio']) else None,
-            'max_drawdown': float(stats['Max. Drawdown [$]']),
-            'max_drawdown_pct': float(stats['Max. Drawdown [%]']),
-            'win_rate': float(stats['Win Rate [%]']),
-            'total_trades': int(stats['# Trades']),
-            'winning_trades': int(stats['# Trades'] * stats['Win Rate [%]'] / 100),
-            'losing_trades': int(stats['# Trades'] * (100 - stats['Win Rate [%]']) / 100),
+            'final_value': get_stat('Equity Final [$]', self.initial_capital),
+            'total_return': get_stat('Return [%]', 0) * self.initial_capital / 100,
+            'total_return_pct': get_stat('Return [%]', 0),
+            'sharpe_ratio': get_stat('Sharpe Ratio', None),
+            'max_drawdown': abs(get_stat('Max. Drawdown [%]', 0)) * self.initial_capital / 100,
+            'max_drawdown_pct': abs(get_stat('Max. Drawdown [%]', 0)),
+            'win_rate': get_stat('Win Rate [%]', 0),
+            'total_trades': int(get_stat('# Trades', 0)),
+            'winning_trades': 0,  # Will calculate from trades
+            'losing_trades': 0,  # Will calculate from trades
             'avg_win': 0.0,  # Calculate from trades
             'avg_loss': 0.0,  # Calculate from trades
             'profit_factor': None,  # Calculate from trades
