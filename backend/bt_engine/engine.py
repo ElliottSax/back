@@ -69,42 +69,66 @@ class BacktestEngine:
 
             def init(self):
                 """Initialize indicators."""
-                # Parse and create indicators from entry/exit rules
+                # Collect all indicators needed (from both main indicator and compare_to)
+                indicators_to_create = set()
+
                 for rule in entry_rules + exit_rules:
+                    # Add main indicator
                     indicator_type = rule.get('indicator')
                     params = rule.get('params', {})
+                    indicators_to_create.add((indicator_type, tuple(sorted(params.items()))))
+
+                    # Add compare_to indicator if it exists and is a dict
+                    compare_to = rule.get('compare_to')
+                    if isinstance(compare_to, dict):
+                        compare_indicator = compare_to.get('indicator')
+                        compare_params = compare_to.get('params', {})
+                        if compare_indicator:
+                            indicators_to_create.add((compare_indicator, tuple(sorted(compare_params.items()))))
+
+                # Create all unique indicators
+                for indicator_type, params_tuple in indicators_to_create:
+                    params = dict(params_tuple)
 
                     if indicator_type == 'sma':
                         period = params.get('period', 20)
-                        setattr(self, f'sma_{period}', self.I(SMA, self.data.Close, period))
+                        attr_name = f'sma_{period}'
+                        if not hasattr(self, attr_name):
+                            setattr(self, attr_name, self.I(SMA, self.data.Close, period))
 
                     elif indicator_type == 'ema':
                         period = params.get('period', 20)
-                        setattr(self, f'ema_{period}', self.I(
-                            lambda x, p: pd.Series(x).ewm(span=p).mean(),
-                            self.data.Close, period
-                        ))
+                        attr_name = f'ema_{period}'
+                        if not hasattr(self, attr_name):
+                            setattr(self, attr_name, self.I(
+                                lambda x, p: pd.Series(x).ewm(span=p).mean(),
+                                self.data.Close, period
+                            ))
 
                     elif indicator_type == 'rsi':
                         period = params.get('period', 14)
-                        setattr(self, f'rsi_{period}', self.I(
-                            lambda x, p: ta.rsi(pd.Series(x), length=p),
-                            self.data.Close, period
-                        ))
+                        attr_name = f'rsi_{period}'
+                        if not hasattr(self, attr_name):
+                            setattr(self, attr_name, self.I(
+                                lambda x, p: ta.rsi(pd.Series(x), length=p),
+                                self.data.Close, period
+                            ))
 
                     elif indicator_type == 'macd':
                         fast = params.get('fast', 12)
                         slow = params.get('slow', 26)
                         signal = params.get('signal', 9)
                         # MACD implementation
-                        setattr(self, 'macd', self.I(
-                            lambda x: ta.macd(pd.Series(x), fast=fast, slow=slow, signal=signal)['MACD_12_26_9'],
-                            self.data.Close
-                        ))
-                        setattr(self, 'macd_signal', self.I(
-                            lambda x: ta.macd(pd.Series(x), fast=fast, slow=slow, signal=signal)['MACDs_12_26_9'],
-                            self.data.Close
-                        ))
+                        if not hasattr(self, 'macd'):
+                            setattr(self, 'macd', self.I(
+                                lambda x: ta.macd(pd.Series(x), fast=fast, slow=slow, signal=signal)['MACD_12_26_9'],
+                                self.data.Close
+                            ))
+                        if not hasattr(self, 'macd_signal'):
+                            setattr(self, 'macd_signal', self.I(
+                                lambda x: ta.macd(pd.Series(x), fast=fast, slow=slow, signal=signal)['MACDs_12_26_9'],
+                                self.data.Close
+                            ))
 
             def next(self):
                 """Execute strategy logic on each bar."""
