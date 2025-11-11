@@ -116,10 +116,21 @@ const Backtest = () => {
     // Reset mutation to clear previous results
     backtestMutation.reset()
 
+    // Strip out the id field if it exists (templates have it, but backend doesn't need it)
+    const { id, ...strategyDef } = selectedStrategy as any
+    const cleanStrategy: StrategyDefinition = {
+      name: strategyDef.name,
+      description: strategyDef.description,
+      entry_rules: strategyDef.entry_rules,
+      exit_rules: strategyDef.exit_rules,
+      position_size: strategyDef.position_size,
+      max_positions: strategyDef.max_positions,
+    }
+
     backtestMutation.mutate({
       symbol,
       asset_class: assetClass,
-      strategy_definition: selectedStrategy,
+      strategy_definition: cleanStrategy,
       start_date: startDate,
       end_date: endDate,
       initial_capital: initialCapital,
