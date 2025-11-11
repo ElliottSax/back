@@ -474,7 +474,7 @@ const Backtest = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {backtestResult.trades.map((trade, index) => (
+                    {backtestResult.trades.map((trade: any, index: number) => (
                       <tr key={index} className="border-b">
                         <td className="px-4 py-2 text-sm">
                           {new Date(trade.entry_time).toLocaleDateString()}
