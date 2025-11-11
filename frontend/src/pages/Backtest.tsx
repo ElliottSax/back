@@ -146,8 +146,8 @@ const TEMPLATE_STRATEGIES: (StrategyDefinition & { id: string })[] = [
   },
   {
     id: 'macd-crossover',
-    name: 'MACD Crossover',
-    description: 'Buy when MACD crosses above signal line, sell when it crosses below',
+    name: 'MACD Zero-Line Crossover',
+    description: 'Buy when MACD crosses above 0, sell when it crosses below 0',
     entry_rules: [
       {
         indicator: IndicatorType.MACD,
