@@ -139,7 +139,11 @@ class BacktestEngine:
                 should_exit = self._check_conditions(exit_rules)
 
                 if should_enter and not self.position:
-                    self.buy(size=position_size)
+                    # Use all available capital if position_size is 1.0, otherwise use specified fraction
+                    if position_size >= 1.0:
+                        self.buy()  # Use all available capital
+                    else:
+                        self.buy(size=position_size)
                 elif should_exit and self.position:
                     self.position.close()
 
@@ -171,40 +175,68 @@ class BacktestEngine:
                     else:
                         continue
 
+                    # Get compare_value (can be scalar or another indicator)
+                    compare_value = None
+                    if isinstance(compare_to, dict):
+                        # compare_to is another indicator
+                        other_indicator = compare_to.get('indicator')
+                        other_params = compare_to.get('params', {})
+                        if other_indicator == 'sma':
+                            period = other_params.get('period', 200)
+                            compare_value = getattr(self, f'sma_{period}')
+                        elif other_indicator == 'ema':
+                            period = other_params.get('period', 200)
+                            compare_value = getattr(self, f'ema_{period}')
+                        elif other_indicator == 'rsi':
+                            period = other_params.get('period', 14)
+                            compare_value = getattr(self, f'rsi_{period}')
+                    else:
+                        # compare_to is a scalar value
+                        compare_value = compare_to
+
                     # Evaluate condition
                     if condition == 'greater_than':
-                        if isinstance(compare_to, (int, float)):
-                            if not (indicator_value[-1] > compare_to):
+                        if isinstance(compare_value, (int, float)):
+                            # Compare to scalar
+                            if not (indicator_value[-1] > compare_value):
                                 return False
+                        else:
+                            # Compare to another indicator series
+                            if not (indicator_value[-1] > compare_value[-1]):
+                                return False
+
                     elif condition == 'less_than':
-                        if isinstance(compare_to, (int, float)):
-                            if not (indicator_value[-1] < compare_to):
+                        if isinstance(compare_value, (int, float)):
+                            # Compare to scalar
+                            if not (indicator_value[-1] < compare_value):
                                 return False
+                        else:
+                            # Compare to another indicator series
+                            if not (indicator_value[-1] < compare_value[-1]):
+                                return False
+
                     elif condition == 'crosses_above':
-                        if isinstance(compare_to, dict):
-                            # Compare to another indicator
-                            other_indicator = compare_to.get('indicator')
-                            other_params = compare_to.get('params', {})
-                            if other_indicator == 'sma':
-                                period = other_params.get('period', 200)
-                                compare_value = getattr(self, f'sma_{period}')
-                                if not crossover(indicator_value, compare_value):
-                                    return False
-                        else:
-                            # Compare to signal line
-                            if not crossover(indicator_value, compare_to):
+                        if isinstance(compare_value, (int, float)):
+                            # Crossover with scalar: check if crossed above the threshold
+                            if len(indicator_value) < 2:
                                 return False
-                    elif condition == 'crosses_below':
-                        if isinstance(compare_to, dict):
-                            other_indicator = compare_to.get('indicator')
-                            other_params = compare_to.get('params', {})
-                            if other_indicator == 'sma':
-                                period = other_params.get('period', 200)
-                                compare_value = getattr(self, f'sma_{period}')
-                                if not crossover(compare_value, indicator_value):
-                                    return False
+                            if not (indicator_value[-2] <= compare_value and indicator_value[-1] > compare_value):
+                                return False
                         else:
-                            if not crossover(compare_to, indicator_value):
+                            # Crossover with another indicator series
+                            if not crossover(indicator_value, compare_value):
+                                return False
+
+                    elif condition == 'crosses_below':
+                        if isinstance(compare_value, (int, float)):
+                            # Crossover with scalar: check if crossed below the threshold
+                            if len(indicator_value) < 2:
+                                return False
+                            if not (indicator_value[-2] >= compare_value and indicator_value[-1] < compare_value):
+                                return False
+                        else:
+                            # Crossover with another indicator series
+                            if not crossover(compare_value, indicator_value):
                                 return False
 
                 return True
