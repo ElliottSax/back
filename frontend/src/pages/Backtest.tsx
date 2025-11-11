@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { backtestAPI } from '@/services/api'
-import { AssetClass, IndicatorType, ConditionType } from '@/types'
-import { Play, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react'
+import { AssetClass, IndicatorType, ConditionType, StrategyDefinition } from '@/types'
+import { Play, TrendingUp, TrendingDown, DollarSign, Activity, Plus } from 'lucide-react'
 import {
   LineChart,
   Line,
@@ -14,6 +15,62 @@ import {
   Legend,
 } from 'recharts'
 
+// Template strategies
+const TEMPLATE_STRATEGIES: (StrategyDefinition & { id: string })[] = [
+  {
+    id: 'sma-crossover',
+    name: 'SMA Crossover (50/200)',
+    description: 'Buy when 50-day SMA crosses above 200-day SMA',
+    entry_rules: [
+      {
+        indicator: IndicatorType.SMA,
+        params: { period: 50 },
+        condition: ConditionType.CROSSES_ABOVE,
+        compare_to: {
+          indicator: IndicatorType.SMA,
+          params: { period: 200 },
+        },
+      },
+    ],
+    exit_rules: [
+      {
+        indicator: IndicatorType.SMA,
+        params: { period: 50 },
+        condition: ConditionType.CROSSES_BELOW,
+        compare_to: {
+          indicator: IndicatorType.SMA,
+          params: { period: 200 },
+        },
+      },
+    ],
+    position_size: 1.0,
+    max_positions: 1,
+  },
+  {
+    id: 'rsi-oversold',
+    name: 'RSI Oversold/Overbought',
+    description: 'Buy when RSI < 30, sell when RSI > 70',
+    entry_rules: [
+      {
+        indicator: IndicatorType.RSI,
+        params: { period: 14 },
+        condition: ConditionType.LESS_THAN,
+        compare_to: 30,
+      },
+    ],
+    exit_rules: [
+      {
+        indicator: IndicatorType.RSI,
+        params: { period: 14 },
+        condition: ConditionType.GREATER_THAN,
+        compare_to: 70,
+      },
+    ],
+    position_size: 1.0,
+    max_positions: 1,
+  },
+]
+
 const Backtest = () => {
   const [symbol, setSymbol] = useState('AAPL')
   const [assetClass, setAssetClass] = useState<AssetClass>(AssetClass.STOCK)
@@ -21,89 +78,67 @@ const Backtest = () => {
   const [endDate, setEndDate] = useState('2024-01-01')
   const [initialCapital, setInitialCapital] = useState(10000)
   const [commission, setCommission] = useState(0.001)
+  const [selectedStrategy, setSelectedStrategy] = useState<StrategyDefinition | null>(null)
+  const [savedStrategies, setSavedStrategies] = useState<(StrategyDefinition & { id: string })[]>([])
+
+  // Load strategies on mount
+  useEffect(() => {
+    // Check for pending strategy from Strategy Builder
+    const pendingStrategy = sessionStorage.getItem('pendingStrategy')
+    if (pendingStrategy) {
+      setSelectedStrategy(JSON.parse(pendingStrategy))
+      sessionStorage.removeItem('pendingStrategy')
+    }
+
+    // Load saved strategies from localStorage
+    const saved = JSON.parse(localStorage.getItem('strategies') || '[]')
+    setSavedStrategies(saved)
+
+    // Default to first template if no pending strategy
+    if (!pendingStrategy && TEMPLATE_STRATEGIES.length > 0) {
+      setSelectedStrategy(TEMPLATE_STRATEGIES[0])
+    }
+  }, [])
 
   const backtestMutation = useMutation({
     mutationFn: backtestAPI.run,
-    onSuccess: (data) => {
-      console.log('=== BACKTEST SUCCESS ===')
-      console.log('Result data:', data)
-    },
-    onError: (error) => {
-      console.error('=== BACKTEST ERROR ===')
-      console.error('Error:', error)
-    },
   })
 
   const handleRunBacktest = () => {
-    alert('BACKTEST BUTTON CLICKED!')
-    console.log('=== RUN BACKTEST CLICKED ===')
-    console.log('Symbol:', symbol)
-    console.log('Date range:', startDate, 'to', endDate)
-
-    // Use the SMA Crossover strategy from templates
-    const smaStrategy = {
-      name: 'SMA Crossover',
-      description: 'Buy when 50-day SMA crosses above 200-day SMA',
-      entry_rules: [
-        {
-          indicator: IndicatorType.SMA,
-          params: { period: 50 },
-          condition: ConditionType.CROSSES_ABOVE,
-          compare_to: {
-            indicator: IndicatorType.SMA,
-            params: { period: 200 },
-          },
-        },
-      ],
-      exit_rules: [
-        {
-          indicator: IndicatorType.SMA,
-          params: { period: 50 },
-          condition: ConditionType.CROSSES_BELOW,
-          compare_to: {
-            indicator: IndicatorType.SMA,
-            params: { period: 200 },
-          },
-        },
-      ],
-      position_size: 1.0,
-      max_positions: 1,
+    if (!selectedStrategy) {
+      alert('Please select a strategy')
+      return
     }
 
-    const requestData = {
+    backtestMutation.mutate({
       symbol,
       asset_class: assetClass,
-      strategy_definition: smaStrategy,
+      strategy_definition: selectedStrategy,
       start_date: startDate,
       end_date: endDate,
       initial_capital: initialCapital,
       commission,
       timeframe: '1d',
-    }
-
-    console.log('Request data:', requestData)
-    console.log('Calling mutation.mutate()...')
-
-    backtestMutation.mutate(requestData)
-
-    console.log('Mutation called. isPending:', backtestMutation.isPending)
+    })
   }
 
+  const handleStrategyChange = (strategyId: string) => {
+    // Check templates first
+    const template = TEMPLATE_STRATEGIES.find((s) => s.id === strategyId)
+    if (template) {
+      setSelectedStrategy(template)
+      return
+    }
+
+    // Check saved strategies
+    const saved = savedStrategies.find((s) => s.id === strategyId)
+    if (saved) {
+      setSelectedStrategy(saved)
+    }
+  }
+
+  const allStrategies = [...TEMPLATE_STRATEGIES, ...savedStrategies]
   const result = backtestMutation.data
-
-  // Debug: Log when component mounts and expose function globally
-  useEffect(() => {
-    console.log('=== BACKTEST COMPONENT MOUNTED ===')
-    console.log('Mutation state:', {
-      isPending: backtestMutation.isPending,
-      isError: backtestMutation.isError,
-      isSuccess: backtestMutation.isSuccess,
-    })
-
-    // Expose function globally for manual testing
-    ;(window as any).testBacktest = handleRunBacktest
-    console.log('Call window.testBacktest() to manually trigger backtest')
-  }, [])
 
   return (
     <div className="space-y-8">
@@ -111,7 +146,7 @@ const Backtest = () => {
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Run Backtest</h1>
         <p className="text-slate-600 mt-2">
-          Test the SMA Crossover strategy against historical market data
+          Test trading strategies against historical market data
         </p>
       </div>
 
@@ -193,12 +228,72 @@ const Backtest = () => {
             />
           </div>
         </div>
+      </div>
+
+      {/* Strategy Selection */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Strategy</h2>
+          <Link
+            to="/strategy-builder"
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create New Strategy
+          </Link>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="label">Select Strategy</label>
+            <select
+              className="input"
+              value={selectedStrategy ? (allStrategies.find(s => s.name === selectedStrategy.name)?.id || '') : ''}
+              onChange={(e) => handleStrategyChange(e.target.value)}
+            >
+              <option value="">Choose a strategy...</option>
+              <optgroup label="Templates">
+                {TEMPLATE_STRATEGIES.map((strategy) => (
+                  <option key={strategy.id} value={strategy.id}>
+                    {strategy.name}
+                  </option>
+                ))}
+              </optgroup>
+              {savedStrategies.length > 0 && (
+                <optgroup label="My Strategies">
+                  {savedStrategies.map((strategy) => (
+                    <option key={strategy.id} value={strategy.id}>
+                      {strategy.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+
+          {selectedStrategy && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <h3 className="font-semibold mb-2">{selectedStrategy.name}</h3>
+              <p className="text-sm text-slate-600 mb-3">{selectedStrategy.description}</p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-slate-700">Entry Rules:</span>
+                  <span className="ml-2 text-slate-600">{selectedStrategy.entry_rules.length}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-700">Exit Rules:</span>
+                  <span className="ml-2 text-slate-600">{selectedStrategy.exit_rules.length}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="mt-6">
           <button
             className="btn btn-primary flex items-center gap-2"
             onClick={handleRunBacktest}
-            disabled={backtestMutation.isPending}
+            disabled={backtestMutation.isPending || !selectedStrategy}
           >
             <Play className="w-4 h-4" />
             {backtestMutation.isPending ? 'Running Backtest...' : 'Run Backtest'}
@@ -283,52 +378,58 @@ const Backtest = () => {
           {/* Trade History */}
           <div className="card">
             <h2 className="text-xl font-semibold mb-4">Trade History</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-100">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">Entry</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold">Exit</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold">Entry Price</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold">Exit Price</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold">P/L</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold">Return</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.trades.map((trade, index) => (
-                    <tr key={index} className="border-b">
-                      <td className="px-4 py-2 text-sm">
-                        {new Date(trade.entry_time).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        {new Date(trade.exit_time).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-2 text-sm text-right">
-                        ${trade.entry_price.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-2 text-sm text-right">
-                        ${trade.exit_price.toFixed(2)}
-                      </td>
-                      <td
-                        className={`px-4 py-2 text-sm text-right font-medium ${
-                          trade.pnl > 0 ? 'text-success' : 'text-error'
-                        }`}
-                      >
-                        ${trade.pnl.toFixed(2)}
-                      </td>
-                      <td
-                        className={`px-4 py-2 text-sm text-right ${
-                          trade.return_pct > 0 ? 'text-success' : 'text-error'
-                        }`}
-                      >
-                        {trade.return_pct.toFixed(2)}%
-                      </td>
+            {result.trades.length === 0 ? (
+              <p className="text-slate-500 text-center py-8">
+                No trades were executed during this backtest period. Try a different date range or strategy.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-sm font-semibold">Entry</th>
+                      <th className="px-4 py-2 text-left text-sm font-semibold">Exit</th>
+                      <th className="px-4 py-2 text-right text-sm font-semibold">Entry Price</th>
+                      <th className="px-4 py-2 text-right text-sm font-semibold">Exit Price</th>
+                      <th className="px-4 py-2 text-right text-sm font-semibold">P/L</th>
+                      <th className="px-4 py-2 text-right text-sm font-semibold">Return</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {result.trades.map((trade, index) => (
+                      <tr key={index} className="border-b">
+                        <td className="px-4 py-2 text-sm">
+                          {new Date(trade.entry_time).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {new Date(trade.exit_time).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right">
+                          ${trade.entry_price.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right">
+                          ${trade.exit_price.toFixed(2)}
+                        </td>
+                        <td
+                          className={`px-4 py-2 text-sm text-right font-medium ${
+                            trade.pnl > 0 ? 'text-success' : 'text-error'
+                          }`}
+                        >
+                          ${trade.pnl.toFixed(2)}
+                        </td>
+                        <td
+                          className={`px-4 py-2 text-sm text-right ${
+                            trade.return_pct > 0 ? 'text-success' : 'text-error'
+                          }`}
+                        >
+                          {trade.return_pct.toFixed(2)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
