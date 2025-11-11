@@ -102,8 +102,14 @@ const Backtest = () => {
 
   const backtestMutation = useMutation({
     mutationFn: backtestAPI.run,
+    onSuccess: (data) => {
+      console.log('✅ BACKTEST SUCCESS')
+      console.log('Result data:', data)
+      console.log('Total trades:', data.total_trades)
+      console.log('Equity curve length:', data.equity_curve?.length)
+    },
     onError: (error) => {
-      console.error('Backtest error:', error)
+      console.error('❌ BACKTEST ERROR:', error)
     },
   })
 
@@ -113,8 +119,10 @@ const Backtest = () => {
       return
     }
 
-    // Reset mutation to clear previous results
-    backtestMutation.reset()
+    console.log('🚀 STARTING BACKTEST')
+    console.log('Symbol:', symbol)
+    console.log('Date range:', startDate, 'to', endDate)
+    console.log('Selected strategy:', selectedStrategy)
 
     // Strip out the id field if it exists (templates have it, but backend doesn't need it)
     const { id, ...strategyDef } = selectedStrategy as any
@@ -127,7 +135,9 @@ const Backtest = () => {
       max_positions: strategyDef.max_positions,
     }
 
-    backtestMutation.mutate({
+    console.log('Clean strategy (without id):', cleanStrategy)
+
+    const payload = {
       symbol,
       asset_class: assetClass,
       strategy_definition: cleanStrategy,
@@ -136,7 +146,11 @@ const Backtest = () => {
       initial_capital: initialCapital,
       commission,
       timeframe: '1d',
-    })
+    }
+
+    console.log('Request payload:', payload)
+
+    backtestMutation.mutate(payload)
   }
 
   const handleStrategyChange = (strategyId: string) => {
