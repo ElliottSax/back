@@ -1,12 +1,32 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { TrendingUp, Layers, Play, ArrowRight } from 'lucide-react'
+import { TrendingUp, Layers, Play, ArrowRight, Trash2, Eye } from 'lucide-react'
+import { StrategyDefinition } from '@/types'
 
 const Dashboard = () => {
+  const [savedStrategies, setSavedStrategies] = useState<(StrategyDefinition & { id: string })[]>([])
+
+  useEffect(() => {
+    // Load saved strategies from localStorage
+    const saved = JSON.parse(localStorage.getItem('strategies') || '[]')
+    setSavedStrategies(saved)
+  }, [])
+
+  const deleteStrategy = (id: string) => {
+    if (!confirm('Are you sure you want to delete this strategy?')) {
+      return
+    }
+
+    const updated = savedStrategies.filter((s) => s.id !== id)
+    setSavedStrategies(updated)
+    localStorage.setItem('strategies', JSON.stringify(updated))
+  }
+
   const quickStats = [
-    { label: 'Total Backtests', value: '0', change: '+0%' },
-    { label: 'Strategies Created', value: '0', change: '+0%' },
-    { label: 'Avg Win Rate', value: '-', change: '-' },
-    { label: 'Best Strategy', value: '-', change: '-' },
+    { label: 'Total Strategies', value: savedStrategies.length.toString(), change: '+0%' },
+    { label: 'Templates Available', value: '2', change: '+0%' },
+    { label: 'Backtests Run', value: '-', change: '-' },
+    { label: 'Best Win Rate', value: '-', change: '-' },
   ]
 
   return (
@@ -106,6 +126,79 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* My Strategies */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">My Strategies</h2>
+          <Link
+            to="/strategy-builder"
+            className="text-primary-600 text-sm font-medium hover:text-primary-700"
+          >
+            Create New Strategy →
+          </Link>
+        </div>
+
+        {savedStrategies.length === 0 ? (
+          <div className="card bg-slate-50">
+            <div className="text-center py-8">
+              <Layers className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <h3 className="font-semibold text-slate-700 mb-2">No strategies yet</h3>
+              <p className="text-sm text-slate-600 mb-4">
+                Create your first custom trading strategy to get started
+              </p>
+              <Link
+                to="/strategy-builder"
+                className="btn btn-primary inline-flex items-center gap-2"
+              >
+                <Layers className="w-4 h-4" />
+                Create Strategy
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {savedStrategies.map((strategy) => (
+              <div key={strategy.id} className="card hover:shadow-lg transition-shadow">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="font-semibold text-lg">{strategy.name}</h3>
+                  <button
+                    onClick={() => deleteStrategy(strategy.id)}
+                    className="text-error hover:text-error-dark"
+                    title="Delete strategy"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+                  {strategy.description || 'No description'}
+                </p>
+                <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                  <div>
+                    <span className="text-slate-500">Entry Rules:</span>
+                    <span className="ml-1 font-medium">{strategy.entry_rules.length}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Exit Rules:</span>
+                    <span className="ml-1 font-medium">{strategy.exit_rules.length}</span>
+                  </div>
+                </div>
+                <Link
+                  to="/backtest"
+                  onClick={() => {
+                    // Save to sessionStorage so Backtest page can use it
+                    sessionStorage.setItem('pendingStrategy', JSON.stringify(strategy))
+                  }}
+                  className="btn btn-secondary w-full flex items-center justify-center gap-2"
+                >
+                  <Play className="w-4 h-4" />
+                  Test Strategy
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Getting Started */}
       <div className="card bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200">
         <h2 className="text-xl font-semibold mb-2">Getting Started</h2>
@@ -115,15 +208,15 @@ const Dashboard = () => {
         <ol className="space-y-2 text-sm text-slate-700">
           <li className="flex items-start gap-2">
             <span className="font-semibold text-primary-600">1.</span>
-            <span>Choose or create a strategy from templates or build your own</span>
+            <span>Create a strategy using the Strategy Builder or choose from templates</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="font-semibold text-primary-600">2.</span>
-            <span>Select an asset (stock, crypto, forex, or option) to test against</span>
+            <span>Select an asset (stock, crypto, or forex) to test against</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="font-semibold text-primary-600">3.</span>
-            <span>Configure your backtest parameters (date range, capital, etc.)</span>
+            <span>Configure your backtest parameters (date range, capital, commission)</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="font-semibold text-primary-600">4.</span>
