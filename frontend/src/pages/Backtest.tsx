@@ -15,6 +15,13 @@ import {
   Legend,
 } from 'recharts'
 
+// Utility function to format ISO date string without timezone issues
+const formatISODate = (isoDate: string) => {
+  // Parse YYYY-MM-DD as local date, not UTC
+  const [year, month, day] = isoDate.split('T')[0].split('-')
+  return `${month}/${day}/${year}`
+}
+
 // Template strategies
 const TEMPLATE_STRATEGIES: (StrategyDefinition & { id: string })[] = [
   {
@@ -603,11 +610,11 @@ const Backtest = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                    tickFormatter={(value) => formatISODate(value)}
                   />
                   <YAxis />
                   <Tooltip
-                    labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                    labelFormatter={(value) => formatISODate(value)}
                     formatter={(value: number) => [`$${value.toFixed(2)}`, 'Equity']}
                   />
                   <Legend />
@@ -648,10 +655,10 @@ const Backtest = () => {
                     {backtestResult.trades.map((trade: any, index: number) => (
                       <tr key={index} className="border-b">
                         <td className="px-4 py-2 text-sm">
-                          {new Date(trade.entry_time).toLocaleDateString()}
+                          {formatISODate(trade.entry_time)}
                         </td>
                         <td className="px-4 py-2 text-sm">
-                          {new Date(trade.exit_time).toLocaleDateString()}
+                          {formatISODate(trade.exit_time)}
                         </td>
                         <td className="px-4 py-2 text-sm text-right">
                           ${trade.entry_price.toFixed(2)}

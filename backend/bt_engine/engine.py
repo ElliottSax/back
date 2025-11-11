@@ -118,16 +118,16 @@ class BacktestEngine:
                         fast = params.get('fast', 12)
                         slow = params.get('slow', 26)
                         signal = params.get('signal', 9)
-                        # MACD implementation
+                        # MACD implementation with dynamic column names
                         if not hasattr(self, 'macd'):
                             setattr(self, 'macd', self.I(
-                                lambda x: ta.macd(pd.Series(x), fast=fast, slow=slow, signal=signal)['MACD_12_26_9'],
-                                self.data.Close
+                                lambda x, f, s, sig: ta.macd(pd.Series(x), fast=f, slow=s, signal=sig)[f'MACD_{f}_{s}_{sig}'],
+                                self.data.Close, fast, slow, signal
                             ))
                         if not hasattr(self, 'macd_signal'):
                             setattr(self, 'macd_signal', self.I(
-                                lambda x: ta.macd(pd.Series(x), fast=fast, slow=slow, signal=signal)['MACDs_12_26_9'],
-                                self.data.Close
+                                lambda x, f, s, sig: ta.macd(pd.Series(x), fast=f, slow=s, signal=sig)[f'MACDs_{f}_{s}_{sig}'],
+                                self.data.Close, fast, slow, signal
                             ))
 
             def next(self):
