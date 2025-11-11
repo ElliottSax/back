@@ -270,7 +270,7 @@ class BacktestEngine:
             equity_data = equity.reset_index()
             results['equity_curve'] = [
                 {
-                    'date': str(row['index'] if 'index' in row else row.name),
+                    'date': pd.to_datetime(row['index'] if 'index' in row else row.name).strftime('%Y-%m-%d'),
                     'equity': float(row['Equity'])
                 }
                 for _, row in equity_data.iterrows()
@@ -281,8 +281,8 @@ class BacktestEngine:
         if trades is not None and not trades.empty:
             results['trades'] = [
                 {
-                    'entry_time': str(row['EntryTime']),
-                    'exit_time': str(row['ExitTime']),
+                    'entry_time': pd.to_datetime(row['EntryTime']).strftime('%Y-%m-%d'),
+                    'exit_time': pd.to_datetime(row['ExitTime']).strftime('%Y-%m-%d'),
                     'entry_price': float(row['EntryPrice']),
                     'exit_price': float(row['ExitPrice']),
                     'size': float(row['Size']),
@@ -295,6 +295,9 @@ class BacktestEngine:
             # Calculate win/loss metrics
             winning_trades = trades[trades['PnL'] > 0]
             losing_trades = trades[trades['PnL'] < 0]
+
+            results['winning_trades'] = len(winning_trades)
+            results['losing_trades'] = len(losing_trades)
 
             if len(winning_trades) > 0:
                 results['avg_win'] = float(winning_trades['PnL'].mean())
