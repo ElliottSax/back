@@ -18,9 +18,32 @@ import {
 // Template strategies
 const TEMPLATE_STRATEGIES: (StrategyDefinition & { id: string })[] = [
   {
+    id: 'buy-and-hold',
+    name: 'Buy and Hold',
+    description: 'Simple baseline strategy: buy at start and hold until end',
+    entry_rules: [
+      {
+        indicator: IndicatorType.SMA,
+        params: { period: 1 },
+        condition: ConditionType.GREATER_THAN,
+        compare_to: 0,
+      },
+    ],
+    exit_rules: [
+      {
+        indicator: IndicatorType.SMA,
+        params: { period: 1 },
+        condition: ConditionType.LESS_THAN,
+        compare_to: 0,
+      },
+    ],
+    position_size: 1.0,
+    max_positions: 1,
+  },
+  {
     id: 'sma-crossover',
     name: 'SMA Crossover (50/200)',
-    description: 'Buy when 50-day SMA crosses above 200-day SMA',
+    description: 'Buy when 50-day SMA crosses above 200-day SMA (Golden Cross)',
     entry_rules: [
       {
         indicator: IndicatorType.SMA,
@@ -47,9 +70,38 @@ const TEMPLATE_STRATEGIES: (StrategyDefinition & { id: string })[] = [
     max_positions: 1,
   },
   {
+    id: 'ema-crossover',
+    name: 'EMA Crossover (12/26)',
+    description: 'Faster trend following using 12-day and 26-day exponential moving averages',
+    entry_rules: [
+      {
+        indicator: IndicatorType.EMA,
+        params: { period: 12 },
+        condition: ConditionType.CROSSES_ABOVE,
+        compare_to: {
+          indicator: IndicatorType.EMA,
+          params: { period: 26 },
+        },
+      },
+    ],
+    exit_rules: [
+      {
+        indicator: IndicatorType.EMA,
+        params: { period: 12 },
+        condition: ConditionType.CROSSES_BELOW,
+        compare_to: {
+          indicator: IndicatorType.EMA,
+          params: { period: 26 },
+        },
+      },
+    ],
+    position_size: 1.0,
+    max_positions: 1,
+  },
+  {
     id: 'rsi-oversold',
     name: 'RSI Oversold/Overbought',
-    description: 'Buy when RSI < 30, sell when RSI > 70',
+    description: 'Buy when RSI < 30 (oversold), sell when RSI > 70 (overbought)',
     entry_rules: [
       {
         indicator: IndicatorType.RSI,
@@ -64,6 +116,125 @@ const TEMPLATE_STRATEGIES: (StrategyDefinition & { id: string })[] = [
         params: { period: 14 },
         condition: ConditionType.GREATER_THAN,
         compare_to: 70,
+      },
+    ],
+    position_size: 1.0,
+    max_positions: 1,
+  },
+  {
+    id: 'rsi-momentum',
+    name: 'RSI Momentum',
+    description: 'Buy when RSI crosses above 50, sell when RSI crosses below 50',
+    entry_rules: [
+      {
+        indicator: IndicatorType.RSI,
+        params: { period: 14 },
+        condition: ConditionType.CROSSES_ABOVE,
+        compare_to: 50,
+      },
+    ],
+    exit_rules: [
+      {
+        indicator: IndicatorType.RSI,
+        params: { period: 14 },
+        condition: ConditionType.CROSSES_BELOW,
+        compare_to: 50,
+      },
+    ],
+    position_size: 1.0,
+    max_positions: 1,
+  },
+  {
+    id: 'macd-crossover',
+    name: 'MACD Crossover',
+    description: 'Buy when MACD crosses above signal line, sell when it crosses below',
+    entry_rules: [
+      {
+        indicator: IndicatorType.MACD,
+        params: { fast: 12, slow: 26, signal: 9 },
+        condition: ConditionType.CROSSES_ABOVE,
+        compare_to: 0,
+      },
+    ],
+    exit_rules: [
+      {
+        indicator: IndicatorType.MACD,
+        params: { fast: 12, slow: 26, signal: 9 },
+        condition: ConditionType.CROSSES_BELOW,
+        compare_to: 0,
+      },
+    ],
+    position_size: 1.0,
+    max_positions: 1,
+  },
+  {
+    id: 'triple-ma-trend',
+    name: 'Triple Moving Average Trend',
+    description: 'Buy when 20>50>200 SMAs align bullish, exit when alignment breaks',
+    entry_rules: [
+      {
+        indicator: IndicatorType.SMA,
+        params: { period: 20 },
+        condition: ConditionType.GREATER_THAN,
+        compare_to: {
+          indicator: IndicatorType.SMA,
+          params: { period: 50 },
+        },
+      },
+      {
+        indicator: IndicatorType.SMA,
+        params: { period: 50 },
+        condition: ConditionType.GREATER_THAN,
+        compare_to: {
+          indicator: IndicatorType.SMA,
+          params: { period: 200 },
+        },
+      },
+    ],
+    exit_rules: [
+      {
+        indicator: IndicatorType.SMA,
+        params: { period: 20 },
+        condition: ConditionType.CROSSES_BELOW,
+        compare_to: {
+          indicator: IndicatorType.SMA,
+          params: { period: 50 },
+        },
+      },
+    ],
+    position_size: 1.0,
+    max_positions: 1,
+  },
+  {
+    id: 'trend-with-rsi-filter',
+    name: 'Trend Following with RSI Filter',
+    description: 'Golden Cross entry but only when RSI > 30 to avoid oversold conditions',
+    entry_rules: [
+      {
+        indicator: IndicatorType.SMA,
+        params: { period: 50 },
+        condition: ConditionType.CROSSES_ABOVE,
+        compare_to: {
+          indicator: IndicatorType.SMA,
+          params: { period: 200 },
+        },
+      },
+      {
+        indicator: IndicatorType.RSI,
+        params: { period: 14 },
+        condition: ConditionType.GREATER_THAN,
+        compare_to: 30,
+      },
+    ],
+    exit_rules: [
+      {
+        indicator: IndicatorType.SMA,
+        params: { period: 50 },
+        condition: ConditionType.CROSSES_BELOW,
+        compare_to: {
+          indicator: IndicatorType.SMA,
+          params: { period: 200 },
+        },
       },
     ],
     position_size: 1.0,
