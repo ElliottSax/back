@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { TrendingUp, Layers, Play, ArrowRight, Trash2, Eye } from 'lucide-react'
+import { TrendingUp, Layers, Play, ArrowRight, Trash2 } from 'lucide-react'
 import { StrategyDefinition } from '@/types'
 
 const Dashboard = () => {

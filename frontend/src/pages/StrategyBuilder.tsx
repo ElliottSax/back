@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Save, Play, ArrowRight } from 'lucide-react'
+import { Plus, Trash2, Save, Play } from 'lucide-react'
 import { IndicatorType, ConditionType, StrategyDefinition } from '@/types'
 
 interface Rule {
