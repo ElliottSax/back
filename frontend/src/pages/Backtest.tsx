@@ -80,6 +80,7 @@ const Backtest = () => {
   const [commission, setCommission] = useState(0.001)
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyDefinition | null>(null)
   const [savedStrategies, setSavedStrategies] = useState<(StrategyDefinition & { id: string })[]>([])
+  const [backtestResult, setBacktestResult] = useState<any>(null)
 
   // Load strategies on mount
   useEffect(() => {
@@ -113,9 +114,15 @@ const Backtest = () => {
         isSuccess: backtestMutation.isSuccess,
         data: backtestMutation.data,
       })
+
+      // Set local state to force re-render
+      console.log('📍 Setting backtestResult state...')
+      setBacktestResult(data)
+      console.log('📍 backtestResult state set!')
     },
     onError: (error) => {
       console.error('❌ BACKTEST ERROR:', error)
+      setBacktestResult(null)
     },
   })
 
@@ -124,6 +131,9 @@ const Backtest = () => {
       alert('Please select a strategy')
       return
     }
+
+    // Clear previous results
+    setBacktestResult(null)
 
     console.log('🚀 STARTING BACKTEST')
     console.log('Symbol:', symbol)
@@ -175,17 +185,16 @@ const Backtest = () => {
   }
 
   const allStrategies = [...TEMPLATE_STRATEGIES, ...savedStrategies]
-  const result = backtestMutation.data
 
-  // Debug: Log when result changes
+  // Debug: Log when backtestResult changes
   useEffect(() => {
-    console.log('📊 Result state changed:', {
-      hasResult: !!result,
+    console.log('📊 backtestResult state changed:', {
+      hasResult: !!backtestResult,
       isPending: backtestMutation.isPending,
       isSuccess: backtestMutation.isSuccess,
-      result: result,
+      result: backtestResult,
     })
-  }, [result, backtestMutation.isPending, backtestMutation.isSuccess])
+  }, [backtestResult, backtestMutation.isPending, backtestMutation.isSuccess])
 
   return (
     <div className="space-y-8">
@@ -370,14 +379,14 @@ const Backtest = () => {
       {/* Results */}
       {(() => {
         console.log('🔍 Render check:', {
-          hasResult: !!result,
+          hasResult: !!backtestResult,
           isPending: backtestMutation.isPending,
           isSuccess: backtestMutation.isSuccess,
-          willRender: !!(result && !backtestMutation.isPending),
+          willRender: !!(backtestResult && !backtestMutation.isPending),
         })
         return null
       })()}
-      {result && !backtestMutation.isPending && (
+      {backtestResult && !backtestMutation.isPending && (
         <div className="space-y-6">
           {/* Performance Metrics */}
           <div>
@@ -385,31 +394,31 @@ const Backtest = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
                 label="Total Return"
-                value={`$${result.total_return.toFixed(2)}`}
-                percentage={`${result.total_return_pct.toFixed(2)}%`}
+                value={`$${backtestResult.total_return.toFixed(2)}`}
+                percentage={`${backtestResult.total_return_pct.toFixed(2)}%`}
                 icon={DollarSign}
-                positive={result.total_return > 0}
+                positive={backtestResult.total_return > 0}
               />
               <MetricCard
                 label="Win Rate"
-                value={`${result.win_rate.toFixed(1)}%`}
-                subtitle={`${result.winning_trades}/${result.total_trades} trades`}
+                value={`${backtestResult.win_rate.toFixed(1)}%`}
+                subtitle={`${backtestResult.winning_trades}/${backtestResult.total_trades} trades`}
                 icon={TrendingUp}
-                positive={result.win_rate > 50}
+                positive={backtestResult.win_rate > 50}
               />
               <MetricCard
                 label="Max Drawdown"
-                value={`${result.max_drawdown_pct.toFixed(2)}%`}
-                subtitle={`$${Math.abs(result.max_drawdown).toFixed(2)}`}
+                value={`${backtestResult.max_drawdown_pct.toFixed(2)}%`}
+                subtitle={`$${Math.abs(backtestResult.max_drawdown).toFixed(2)}`}
                 icon={TrendingDown}
                 positive={false}
               />
               <MetricCard
                 label="Sharpe Ratio"
-                value={result.sharpe_ratio?.toFixed(2) || 'N/A'}
+                value={backtestResult.sharpe_ratio?.toFixed(2) || 'N/A'}
                 subtitle="Risk-adjusted return"
                 icon={Activity}
-                positive={(result.sharpe_ratio || 0) > 1}
+                positive={(backtestResult.sharpe_ratio || 0) > 1}
               />
             </div>
           </div>
@@ -419,7 +428,7 @@ const Backtest = () => {
             <h2 className="text-xl font-semibold mb-4">Equity Curve</h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={result.equity_curve}>
+                <LineChart data={backtestResult.equity_curve}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="date"
@@ -447,7 +456,7 @@ const Backtest = () => {
           {/* Trade History */}
           <div className="card">
             <h2 className="text-xl font-semibold mb-4">Trade History</h2>
-            {result.trades.length === 0 ? (
+            {backtestResult.trades.length === 0 ? (
               <p className="text-slate-500 text-center py-8">
                 No trades were executed during this backtest period. Try a different date range or strategy.
               </p>
@@ -465,7 +474,7 @@ const Backtest = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {result.trades.map((trade, index) => (
+                    {backtestResult.trades.map((trade, index) => (
                       <tr key={index} className="border-b">
                         <td className="px-4 py-2 text-sm">
                           {new Date(trade.entry_time).toLocaleDateString()}
