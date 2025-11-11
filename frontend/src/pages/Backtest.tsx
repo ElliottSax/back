@@ -72,10 +72,10 @@ const TEMPLATE_STRATEGIES: (StrategyDefinition & { id: string })[] = [
 ]
 
 const Backtest = () => {
-  const [symbol, setSymbol] = useState('AAPL')
+  const [symbol, setSymbol] = useState('TSLA')
   const [assetClass, setAssetClass] = useState<AssetClass>(AssetClass.STOCK)
-  const [startDate, setStartDate] = useState('2023-01-01')
-  const [endDate, setEndDate] = useState('2024-01-01')
+  const [startDate, setStartDate] = useState('2020-01-01')
+  const [endDate, setEndDate] = useState('2022-12-31')
   const [initialCapital, setInitialCapital] = useState(10000)
   const [commission, setCommission] = useState(0.001)
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyDefinition | null>(null)
