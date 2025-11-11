@@ -159,21 +159,33 @@ class BacktestEngine:
                     compare_to = rule.get('compare_to')
 
                     # Get the indicator value
-                    if indicator_type == 'sma':
-                        period = params.get('period', 20)
-                        indicator_value = getattr(self, f'sma_{period}')
-                    elif indicator_type == 'ema':
-                        period = params.get('period', 20)
-                        indicator_value = getattr(self, f'ema_{period}')
-                    elif indicator_type == 'rsi':
-                        period = params.get('period', 14)
-                        indicator_value = getattr(self, f'rsi_{period}')
-                    elif indicator_type == 'macd':
-                        indicator_value = getattr(self, 'macd')
-                        if compare_to == 'signal':
-                            compare_to = getattr(self, 'macd_signal')
-                    else:
-                        continue
+                    try:
+                        if indicator_type == 'sma':
+                            period = params.get('period', 20)
+                            indicator_value = getattr(self, f'sma_{period}')
+                        elif indicator_type == 'ema':
+                            period = params.get('period', 20)
+                            indicator_value = getattr(self, f'ema_{period}')
+                        elif indicator_type == 'rsi':
+                            period = params.get('period', 14)
+                            indicator_value = getattr(self, f'rsi_{period}')
+                        elif indicator_type == 'macd':
+                            indicator_value = getattr(self, 'macd')
+                            if compare_to == 'signal':
+                                compare_to = getattr(self, 'macd_signal')
+                        else:
+                            continue
+                    except AttributeError:
+                        # Indicator not initialized, skip this rule
+                        return False
+
+                    # Safety check: ensure indicator has values
+                    if indicator_value is None or len(indicator_value) == 0:
+                        return False
+
+                    # Check for NaN in current value (indicator not ready yet)
+                    if pd.isna(indicator_value[-1]):
+                        return False
 
                     # Get compare_value (can be scalar or another indicator)
                     compare_value = None
@@ -181,15 +193,24 @@ class BacktestEngine:
                         # compare_to is another indicator
                         other_indicator = compare_to.get('indicator')
                         other_params = compare_to.get('params', {})
-                        if other_indicator == 'sma':
-                            period = other_params.get('period', 200)
-                            compare_value = getattr(self, f'sma_{period}')
-                        elif other_indicator == 'ema':
-                            period = other_params.get('period', 200)
-                            compare_value = getattr(self, f'ema_{period}')
-                        elif other_indicator == 'rsi':
-                            period = other_params.get('period', 14)
-                            compare_value = getattr(self, f'rsi_{period}')
+                        try:
+                            if other_indicator == 'sma':
+                                period = other_params.get('period', 200)
+                                compare_value = getattr(self, f'sma_{period}')
+                            elif other_indicator == 'ema':
+                                period = other_params.get('period', 200)
+                                compare_value = getattr(self, f'ema_{period}')
+                            elif other_indicator == 'rsi':
+                                period = other_params.get('period', 14)
+                                compare_value = getattr(self, f'rsi_{period}')
+                        except AttributeError:
+                            return False
+
+                        # Safety check for comparison indicator
+                        if compare_value is None or len(compare_value) == 0:
+                            return False
+                        if pd.isna(compare_value[-1]):
+                            return False
                     else:
                         # compare_to is a scalar value
                         compare_value = compare_to
@@ -220,10 +241,17 @@ class BacktestEngine:
                             # Crossover with scalar: check if crossed above the threshold
                             if len(indicator_value) < 2:
                                 return False
+                            # Check for NaN in previous value
+                            if pd.isna(indicator_value[-2]):
+                                return False
                             if not (indicator_value[-2] <= compare_value and indicator_value[-1] > compare_value):
                                 return False
                         else:
                             # Crossover with another indicator series
+                            if len(compare_value) < 2:
+                                return False
+                            if pd.isna(compare_value[-2]):
+                                return False
                             if not crossover(indicator_value, compare_value):
                                 return False
 
@@ -232,10 +260,17 @@ class BacktestEngine:
                             # Crossover with scalar: check if crossed below the threshold
                             if len(indicator_value) < 2:
                                 return False
+                            # Check for NaN in previous value
+                            if pd.isna(indicator_value[-2]):
+                                return False
                             if not (indicator_value[-2] >= compare_value and indicator_value[-1] < compare_value):
                                 return False
                         else:
                             # Crossover with another indicator series
+                            if len(compare_value) < 2:
+                                return False
+                            if pd.isna(compare_value[-2]):
+                                return False
                             if not crossover(compare_value, indicator_value):
                                 return False
 
