@@ -102,6 +102,9 @@ const Backtest = () => {
 
   const backtestMutation = useMutation({
     mutationFn: backtestAPI.run,
+    onError: (error) => {
+      console.error('Backtest error:', error)
+    },
   })
 
   const handleRunBacktest = () => {
@@ -109,6 +112,9 @@ const Backtest = () => {
       alert('Please select a strategy')
       return
     }
+
+    // Reset mutation to clear previous results
+    backtestMutation.reset()
 
     backtestMutation.mutate({
       symbol,
@@ -307,8 +313,21 @@ const Backtest = () => {
         )}
       </div>
 
+      {/* Loading State */}
+      {backtestMutation.isPending && (
+        <div className="card">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+              <p className="text-slate-600">Running backtest...</p>
+              <p className="text-sm text-slate-500 mt-2">This may take a few moments</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Results */}
-      {result && (
+      {result && !backtestMutation.isPending && (
         <div className="space-y-6">
           {/* Performance Metrics */}
           <div>
