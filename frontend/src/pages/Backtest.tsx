@@ -107,6 +107,12 @@ const Backtest = () => {
       console.log('Result data:', data)
       console.log('Total trades:', data.total_trades)
       console.log('Equity curve length:', data.equity_curve?.length)
+      console.log('Data fields:', Object.keys(data))
+      console.log('Mutation state after success:', {
+        isPending: backtestMutation.isPending,
+        isSuccess: backtestMutation.isSuccess,
+        data: backtestMutation.data,
+      })
     },
     onError: (error) => {
       console.error('❌ BACKTEST ERROR:', error)
@@ -170,6 +176,16 @@ const Backtest = () => {
 
   const allStrategies = [...TEMPLATE_STRATEGIES, ...savedStrategies]
   const result = backtestMutation.data
+
+  // Debug: Log when result changes
+  useEffect(() => {
+    console.log('📊 Result state changed:', {
+      hasResult: !!result,
+      isPending: backtestMutation.isPending,
+      isSuccess: backtestMutation.isSuccess,
+      result: result,
+    })
+  }, [result, backtestMutation.isPending, backtestMutation.isSuccess])
 
   return (
     <div className="space-y-8">
@@ -352,6 +368,15 @@ const Backtest = () => {
       )}
 
       {/* Results */}
+      {(() => {
+        console.log('🔍 Render check:', {
+          hasResult: !!result,
+          isPending: backtestMutation.isPending,
+          isSuccess: backtestMutation.isSuccess,
+          willRender: !!(result && !backtestMutation.isPending),
+        })
+        return null
+      })()}
       {result && !backtestMutation.isPending && (
         <div className="space-y-6">
           {/* Performance Metrics */}
