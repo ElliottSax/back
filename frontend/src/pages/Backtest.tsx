@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { backtestAPI } from '@/services/api'
 import { AssetClass, IndicatorType, ConditionType } from '@/types'
@@ -35,6 +35,7 @@ const Backtest = () => {
   })
 
   const handleRunBacktest = () => {
+    alert('BACKTEST BUTTON CLICKED!')
     console.log('=== RUN BACKTEST CLICKED ===')
     console.log('Symbol:', symbol)
     console.log('Date range:', startDate, 'to', endDate)
@@ -89,6 +90,20 @@ const Backtest = () => {
   }
 
   const result = backtestMutation.data
+
+  // Debug: Log when component mounts and expose function globally
+  useEffect(() => {
+    console.log('=== BACKTEST COMPONENT MOUNTED ===')
+    console.log('Mutation state:', {
+      isPending: backtestMutation.isPending,
+      isError: backtestMutation.isError,
+      isSuccess: backtestMutation.isSuccess,
+    })
+
+    // Expose function globally for manual testing
+    ;(window as any).testBacktest = handleRunBacktest
+    console.log('Call window.testBacktest() to manually trigger backtest')
+  }, [])
 
   return (
     <div className="space-y-8">
