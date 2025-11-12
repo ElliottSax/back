@@ -123,7 +123,7 @@ class DataService:
             start=start_date,
             end=end_date,
             interval=timeframe,
-            auto_adjust=False
+            auto_adjust=True  # Use split-adjusted data
         )
         return df
 
@@ -166,19 +166,27 @@ class DataService:
         from app.config import settings
 
         ts = TimeSeries(key=settings.ALPHA_VANTAGE_API_KEY, output_format='pandas')
-        df, meta = ts.get_daily(symbol=symbol, outputsize='full')
+        # Use get_daily_adjusted to get split-adjusted data
+        df, meta = ts.get_daily_adjusted(symbol=symbol, outputsize='full')
 
         print(f"Alpha Vantage raw response: {len(df)} rows")
         print(f"Date range: {df.index.min()} to {df.index.max()}")
 
-        # Rename columns first
+        # Rename columns for adjusted data
         df = df.rename(columns={
             '1. open': 'Open',
             '2. high': 'High',
             '3. low': 'Low',
             '4. close': 'Close',
-            '5. volume': 'Volume'
+            '5. adjusted close': 'Adj Close',
+            '6. volume': 'Volume',
+            '7. dividend amount': 'Dividends',
+            '8. split coefficient': 'Stock Splits'
         })
+
+        # Use adjusted close as the primary close price for backtesting
+        # This ensures splits and dividends are properly accounted for
+        df['Close'] = df['Adj Close']
 
         # Convert index to datetime and sort
         df.index = pd.to_datetime(df.index)
