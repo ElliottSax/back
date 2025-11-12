@@ -12,8 +12,12 @@ class DataService:
     Supports multiple asset classes and data providers.
     """
 
+    # Class-level cache shared across all instances
+    _cache = {}
+
     def __init__(self):
-        self.cache = {}
+        # Use class-level cache
+        self.cache = DataService._cache
 
     async def get_historical_data(
         self,
@@ -41,7 +45,13 @@ class DataService:
 
         # Check cache
         if cache_key in self.cache:
+            print(f"✅ CACHE HIT for {cache_key}")
+            print(f"   Returning {len(self.cache[cache_key])} cached rows")
+            print(f"   Date range: {self.cache[cache_key].index.min()} to {self.cache[cache_key].index.max()}")
+            print(f"   Sample prices: Open={self.cache[cache_key]['open'].iloc[0]:.2f}, Close={self.cache[cache_key]['close'].iloc[0]:.2f}")
             return self.cache[cache_key].copy()
+
+        print(f"❌ CACHE MISS for {cache_key}")
 
         # Fetch data based on asset class
         if asset_class == AssetClass.STOCK:
@@ -260,4 +270,16 @@ class DataService:
 
     def clear_cache(self):
         """Clear the data cache."""
+        cache_size = len(self.cache)
         self.cache.clear()
+        DataService._cache.clear()
+        print(f"🗑️  Cache cleared! Removed {cache_size} entries")
+        return {"message": f"Cache cleared! Removed {cache_size} entries", "cleared_count": cache_size}
+
+    @classmethod
+    def get_cache_stats(cls):
+        """Get cache statistics."""
+        return {
+            "size": len(cls._cache),
+            "keys": list(cls._cache.keys())
+        }

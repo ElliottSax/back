@@ -150,3 +150,22 @@ async def get_available_assets():
             }
         ]
     }
+
+
+@router.get("/cache/stats")
+async def get_cache_stats():
+    """
+    Get data cache statistics.
+    """
+    from app.services.data_service import DataService
+    return DataService.get_cache_stats()
+
+
+@router.post("/cache/clear")
+async def clear_cache():
+    """
+    Clear the data cache to force fresh data fetching.
+    """
+    from app.services.data_service import DataService
+    data_service = DataService()
+    return data_service.clear_cache()
