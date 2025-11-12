@@ -87,6 +87,9 @@ class DataService:
 
         # Cache the result
         self.cache[cache_key] = df.copy()
+        print(f"💾 Cached {len(df)} rows for key: {cache_key}")
+        print(f"   Date range: {df.index.min()} to {df.index.max()}")
+        print(f"   Sample prices: Open={df['open'].iloc[0]:.2f}, Close={df['close'].iloc[0]:.2f}")
 
         return df
 
@@ -128,15 +131,53 @@ class DataService:
         end_date: datetime,
         timeframe: str
     ) -> pd.DataFrame:
-        """Synchronous yfinance fetch for thread pool execution."""
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(
-            start=start_date,
-            end=end_date,
-            interval=timeframe,
-            auto_adjust=True  # Use split-adjusted data
-        )
-        return df
+        """Synchronous yfinance fetch with retry logic."""
+        import time
+
+        max_retries = 3
+        retry_delay = 2  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                print(f"Yahoo Finance attempt {attempt + 1}/{max_retries} for {symbol}")
+
+                ticker = yf.Ticker(symbol)
+
+                # Fetch with split-adjusted data
+                df = ticker.history(
+                    start=start_date,
+                    end=end_date,
+                    interval=timeframe,
+                    auto_adjust=True,  # Split and dividend adjusted
+                    actions=False  # Don't need dividend/split columns
+                )
+
+                # Validate data
+                if df is None or df.empty:
+                    raise ValueError(f"Empty DataFrame returned for {symbol}")
+
+                if len(df) < 10:
+                    print(f"⚠️  Warning: Only {len(df)} rows returned for {symbol}, expected more")
+
+                # Log first row for debugging
+                if len(df) > 0:
+                    first_row = df.iloc[0]
+                    print(f"✅ Yahoo Finance success! First row: Date={df.index[0]}, Open={first_row['Open']:.2f}, Close={first_row['Close']:.2f}")
+
+                return df
+
+            except Exception as e:
+                print(f"❌ Yahoo Finance attempt {attempt + 1} failed: {str(e)}")
+
+                if attempt < max_retries - 1:
+                    print(f"⏳ Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    print(f"💥 All Yahoo Finance attempts failed for {symbol}")
+                    raise
+
+        raise Exception(f"Failed to fetch {symbol} from Yahoo Finance after {max_retries} attempts")
 
     async def _fetch_alpha_vantage_data(
         self,
