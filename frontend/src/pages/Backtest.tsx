@@ -17,9 +17,28 @@ import {
 
 // Utility function to format ISO date string without timezone issues
 const formatISODate = (isoDate: string) => {
-  // Parse YYYY-MM-DD as local date, not UTC
-  const [year, month, day] = isoDate.split('T')[0].split('-')
-  return `${month}/${day}/${year}`
+  // Handle null/undefined/invalid dates
+  if (!isoDate || typeof isoDate !== 'string') {
+    console.warn('Invalid date received:', isoDate)
+    return 'Invalid Date'
+  }
+
+  try {
+    // Parse YYYY-MM-DD as local date, not UTC
+    const datePart = isoDate.split('T')[0]
+    const [year, month, day] = datePart.split('-')
+
+    // Validate parts exist
+    if (!year || !month || !day) {
+      console.warn('Date parts missing:', { year, month, day, original: isoDate })
+      return 'Invalid Date'
+    }
+
+    return `${month}/${day}/${year}`
+  } catch (error) {
+    console.error('Error formatting date:', error, 'Input:', isoDate)
+    return 'Invalid Date'
+  }
 }
 
 // Template strategies
@@ -287,11 +306,17 @@ const Backtest = () => {
       console.log('Total trades:', data.total_trades)
       console.log('Equity curve length:', data.equity_curve?.length)
       console.log('Data fields:', Object.keys(data))
-      console.log('Mutation state after success:', {
-        isPending: backtestMutation.isPending,
-        isSuccess: backtestMutation.isSuccess,
-        data: backtestMutation.data,
-      })
+
+      // Debug equity curve dates
+      if (data.equity_curve && data.equity_curve.length > 0) {
+        console.log('First 3 equity points:', data.equity_curve.slice(0, 3))
+        console.log('Last 3 equity points:', data.equity_curve.slice(-3))
+      }
+
+      // Debug trades
+      if (data.trades && data.trades.length > 0) {
+        console.log('First trade:', data.trades[0])
+      }
 
       // Set local state to force re-render
       console.log('📍 Setting backtestResult state...')
