@@ -334,13 +334,12 @@ class BacktestEngine:
         # Get equity curve
         equity = stats._equity_curve
         if equity is not None:
-            equity_data = equity.reset_index()
             results['equity_curve'] = [
                 {
-                    'date': pd.to_datetime(row['index'] if 'index' in row else row.name).strftime('%Y-%m-%d'),
+                    'date': pd.to_datetime(date).strftime('%Y-%m-%d'),
                     'equity': float(row['Equity'])
                 }
-                for _, row in equity_data.iterrows()
+                for date, row in equity.iterrows()
             ]
 
         # Get trades
