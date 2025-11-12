@@ -45,22 +45,22 @@ class DataService:
 
         # Fetch data based on asset class
         if asset_class == AssetClass.STOCK:
-            # Try Alpha Vantage first for stocks, fallback to Yahoo Finance
+            # Try Yahoo Finance first (free split-adjusted data), fallback to Alpha Vantage
             try:
-                print(f"Fetching {symbol} from Alpha Vantage...")
-                df = await self._fetch_alpha_vantage_data(symbol, start_date, end_date, timeframe)
-                print(f"Alpha Vantage returned {len(df)} rows")
+                print(f"Fetching {symbol} from Yahoo Finance...")
+                df = await self._fetch_yfinance_data(symbol, start_date, end_date, timeframe)
+                print(f"Yahoo Finance returned {len(df)} rows")
             except Exception as e:
                 import traceback
-                print(f"Alpha Vantage failed for {symbol}: {str(e)}")
+                print(f"Yahoo Finance failed for {symbol}: {str(e)}")
                 print(f"Traceback: {traceback.format_exc()}")
-                print(f"Trying Yahoo Finance fallback...")
+                print(f"Trying Alpha Vantage fallback...")
                 try:
-                    df = await self._fetch_yfinance_data(symbol, start_date, end_date, timeframe)
-                    print(f"Yahoo Finance returned {len(df)} rows")
-                except Exception as yf_error:
-                    print(f"Yahoo Finance also failed: {str(yf_error)}")
-                    print(f"YF Traceback: {traceback.format_exc()}")
+                    df = await self._fetch_alpha_vantage_data(symbol, start_date, end_date, timeframe)
+                    print(f"Alpha Vantage returned {len(df)} rows")
+                except Exception as av_error:
+                    print(f"Alpha Vantage also failed: {str(av_error)}")
+                    print(f"AV Traceback: {traceback.format_exc()}")
                     raise
         elif asset_class == AssetClass.CRYPTO:
             df = await self._fetch_yfinance_data(symbol, start_date, end_date, timeframe)
@@ -161,32 +161,25 @@ class DataService:
         start_date: datetime,
         end_date: datetime
     ) -> pd.DataFrame:
-        """Synchronous Alpha Vantage fetch."""
+        """Synchronous Alpha Vantage fetch (free tier - not split-adjusted)."""
         from alpha_vantage.timeseries import TimeSeries
         from app.config import settings
 
         ts = TimeSeries(key=settings.ALPHA_VANTAGE_API_KEY, output_format='pandas')
-        # Use get_daily_adjusted to get split-adjusted data
-        df, meta = ts.get_daily_adjusted(symbol=symbol, outputsize='full')
+        # Use get_daily (free tier) - note: not split-adjusted
+        df, meta = ts.get_daily(symbol=symbol, outputsize='full')
 
         print(f"Alpha Vantage raw response: {len(df)} rows")
         print(f"Date range: {df.index.min()} to {df.index.max()}")
 
-        # Rename columns for adjusted data
+        # Rename columns
         df = df.rename(columns={
             '1. open': 'Open',
             '2. high': 'High',
             '3. low': 'Low',
             '4. close': 'Close',
-            '5. adjusted close': 'Adj Close',
-            '6. volume': 'Volume',
-            '7. dividend amount': 'Dividends',
-            '8. split coefficient': 'Stock Splits'
+            '5. volume': 'Volume'
         })
-
-        # Use adjusted close as the primary close price for backtesting
-        # This ensures splits and dividends are properly accounted for
-        df['Close'] = df['Adj Close']
 
         # Convert index to datetime and sort
         df.index = pd.to_datetime(df.index)
