@@ -40,8 +40,9 @@ class DataService:
         Returns:
             DataFrame with OHLCV data
         """
-        # Create cache key
-        cache_key = f"{symbol}_{asset_class}_{start_date.date()}_{end_date.date()}_{timeframe}"
+        # Create cache key with version suffix to invalidate old cached data
+        # v2 = Yahoo Finance with split-adjusted data (auto_adjust=True)
+        cache_key = f"{symbol}_{asset_class}_{start_date.date()}_{end_date.date()}_{timeframe}_v2"
 
         # Check cache
         if cache_key in self.cache:
